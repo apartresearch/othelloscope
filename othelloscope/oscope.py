@@ -382,7 +382,7 @@ def top_50_games(layer, neuron, focus_cache, board_seqs_int):
 
     # Loop through the rows
     table += "<tr><td class='game_step_id'></td>"
-    for col in range(neuron_acts.shape[1] + 1):
+    for col in range(neuron_acts.shape[1]):
         table += "<td class='game_step_id'>{0}</td>".format(col + 1)
     table += "</tr>"
     for row in range(neuron_acts.shape[0]):

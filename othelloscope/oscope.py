@@ -102,10 +102,7 @@ def generate_activation_table(heatmap: torch.Tensor) -> str:
         The generated activation table.
     """
     # Convert heatmap to numpy array
-    if isinstance(heatmap, torch.Tensor):
-        heatmap = np.array(heatmap.detach().cpu())
-    else:
-        heatmap = np.array(heatmap[0].detach().cpu())
+    heatmap = np.array(heatmap.detach().cpu())
     othello_board = np.array(
         [
             ["A", "B", "C", "D", "E", "F", "G", "H"],
@@ -433,7 +430,8 @@ def generate_logit_attribution_table(
     state = torch.zeros(8, 8, device=DEVICE)
     state.flatten()[stoi_indices] = w_out @ model.W_U[:, 1:]
     state.reshape(8, 8)
-    return generate_activation_table([state])
+    assert state[7, 7] == 0
+    return generate_activation_table(state)
 
 
 def generate_main_index(variance_sorted_neurons: list[list[int]]):

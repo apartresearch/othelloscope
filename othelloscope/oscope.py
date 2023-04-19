@@ -365,7 +365,7 @@ def generate_page(
         f.write(template)
 
 
-def top_50_games(layer, neuron, focus_cache, board_seqs_int):
+def top_50_games(layer, neuron, focus_cache, board_seqs_int) -> str:
     """Takes top 50 games and visualizes them in a grid with visualization of the board state when hovering along with the neuron activation for that specific game."""
     neuron_acts = focus_cache["post", layer, "mlp"][:, :, neuron]
     num_games = 50
@@ -402,7 +402,7 @@ def top_50_games(layer, neuron, focus_cache, board_seqs_int):
     return table
 
 
-def generate_logit_attribution_table(layer, neuron, model, stoi_indices):
+def generate_logit_attribution_table(layer, neuron, model, stoi_indices) -> str:
     """Generate a logit attribution table."""
     w_out = model.blocks[layer].mlp.W_out[neuron, :]
     state = torch.zeros(8, 8, device=DEVICE)
@@ -425,7 +425,7 @@ def generate_main_index(variance_sorted_neurons: list[list[int]]):
         f.write(file)
 
 
-def ranked_neuron_table(variance_sorted_neurons: list[list[int]]):
+def ranked_neuron_table(variance_sorted_neurons: list[list[int]]) -> str:
     """Generate a table of ranked neurons."""
 
     table = "<table class='neurons'>"
@@ -460,19 +460,24 @@ def main():
         act_fn="gelu",
         normalization_type="LNPre",
     )
-    model = to_device(HookedTransformer(cfg))
+    model: HookedTransformer = to_device(HookedTransformer(cfg))
 
     sd = utils.download_file_from_hf(
         "NeelNanda/Othello-GPT-Transformer-Lens", "synthetic_model.pth"
     )
     model.load_state_dict(sd)
 
+    # Sequences of actions taken in game
+    # Shape: (num_games, length_of_game)
     board_seqs_int = torch.tensor(
         np.load(OTHELLO_ROOT / "board_seqs_int_small.npy"), dtype=torch.long
     )
+    # Shape: (num_games, length_of_game)
     board_seqs_string = torch.tensor(
         np.load(OTHELLO_ROOT / "board_seqs_string_small.npy"), dtype=torch.long
     )
+    print("board_seqs_int:", board_seqs_int[0])
+    print("board_seqs_string:", board_seqs_string[0])
 
     num_games, length_of_game = board_seqs_int.shape
     print(
@@ -482,33 +487,6 @@ def main():
     print("Length of game:", length_of_game)
 
     stoi_indices = list(range(0, 60))
-    alpha = "ABCDEFGH"
-
-    def to_board_label(i):
-        return f"{alpha[i//8]}{i%8}"
-
-    board_labels = list(map(to_board_label, stoi_indices))
-
-    moves_int = board_seqs_int[0, :30]
-
-    # This is implicitly converted to a batch of size 1
-    logits = model(moves_int)
-    print("logits:", logits.shape)
-
-    logit_vec = logits[0, -1]
-    log_probs = logit_vec.log_softmax(-1)
-    # Remove passing
-    log_probs = log_probs[1:]
-    assert len(log_probs) == 60
-
-    temp_board_state = torch.zeros(64, device=logit_vec.device)
-    # Set all cells to -15 by default, for a very negative log prob - this means the middle cells don't show up as mattering
-    temp_board_state -= 13.0
-    temp_board_state[stoi_indices] = log_probs
-    temp_board_state = temp_board_state.reshape(8, 8)
-    temp_board_state = temp_board_state.cpu().detach().numpy()
-
-    print("temp_board_state:", temp_board_state.shape)
 
     num_games = 50
     focus_games_int = board_seqs_int[:num_games]
@@ -653,6 +631,9 @@ def main():
     heatmaps_blank, heatmaps_my = calculate_heatmaps(
         model, 8, focus_cache, blank_probe_normalised, my_probe_normalised
     )
+
+    print(type(heatmaps_my))
+    print(heatmaps_my.shape)
 
     # Calculate heatmap standard deviations
     heatmaps_my_sd = calculate_heatmap_standard_deviations(heatmaps_my)

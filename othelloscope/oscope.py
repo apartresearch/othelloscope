@@ -48,7 +48,7 @@ def to_device(object):
         return object.cpu()
 
 
-def generate_from_template(template, *args):
+def generate_from_template(template: str, *args) -> str:
     """Generate a file from a template.
 
     Parameters
@@ -68,7 +68,7 @@ def generate_from_template(template, *args):
     return template.format(*args)
 
 
-def generate_neuron_path(layer, neuron):
+def generate_neuron_path(layer_index: int, neuron_index: int):
     """Generate the path to the neuron.
 
     Parameters
@@ -83,7 +83,7 @@ def generate_neuron_path(layer, neuron):
     str
         The path to the neuron.
     """
-    return "othelloscope/L{0}/N{1}".format(layer, neuron)
+    return "othelloscope/L{0}/N{1}".format(layer_index, neuron_index)
 
 
 def generate_activation_table(heatmap: torch.Tensor) -> str:
@@ -133,17 +133,25 @@ def generate_activation_table(heatmap: torch.Tensor) -> str:
     return table
 
 
-def one_hot(list_of_ints, num_classes=64):
+# Creates a one dimensional tensor of size `num_classes` with the specified indices set to 1.0
+def one_hot(list_of_ints: list[int], num_classes: int = 64) -> torch.Tensor:
     out = torch.zeros((num_classes,), dtype=torch.float32)
     out[list_of_ints] = 1.0
     return out
 
 
 def generate_probability_table(
-    layer, game_index, move, focus_cache, linear_probe, **kwargs
-):
+    layer_index: int,
+    game_index: int,
+    move_index: int,
+    focus_cache: dict[str, torch.Tensor],
+    linear_probe: torch.Tensor,
+    **kwargs,
+) -> torch.Tensor:
     """Generate a probability table."""
-    residual_stream = to_device(focus_cache["resid_post", layer][game_index, move])
+    residual_stream = to_device(
+        focus_cache["resid_post", layer_index][game_index, move_index]
+    )
 
     print("residual_stream", residual_stream.shape)
     probe_out = einops.einsum(
@@ -155,7 +163,7 @@ def generate_probability_table(
     return probabilities
 
 
-def state_stack_to_one_hot(state_stack):
+def state_stack_to_one_hot(state_stack: torch.Tensor) -> torch.Tensor:
     """Convert a state stack to one hot encoding.
 
     Parameters
@@ -184,15 +192,21 @@ def state_stack_to_one_hot(state_stack):
     return one_hot
 
 
-def neuron_probe(model, layer, neuron):
-    neuron = neuron.item()
-    w_out = model.blocks[layer].mlp.W_out[neuron, :].detach()
+def neuron_probe(
+    model: HookedTransformer, layer_index: int, neuron_index: int
+) -> torch.Tensor:
+    neuron_index = neuron_index.item()
+    w_out = model.blocks[layer_index].mlp.W_out[neuron_index, :].detach()
     w_out /= w_out.norm()
     return w_out
 
 
 def calculate_heatmaps(
-    model, num_layers: int, focus_cache, blank_probe_normalised, my_probe_normalised
+    model: HookedTransformer,
+    num_layers: int,
+    focus_cache: dict[str, torch.Tensor],
+    blank_probe_normalised: torch.Tensor,
+    my_probe_normalised: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     layer_heatmaps_blank = []
     layer_heatmaps_my = []
@@ -209,7 +223,11 @@ def calculate_heatmaps(
 
 
 def calculate_heatmaps_for_layer(
-    model, layer_index: int, focus_cache, blank_probe_normalised, my_probe_normalised
+    model: HookedTransformer,
+    layer_index: int,
+    focus_cache: dict[str, torch.Tensor],
+    blank_probe_normalised: torch.Tensor,
+    my_probe_normalised: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     neurons = (
         to_device(focus_cache["post", layer_index][:, 3:-3])
@@ -240,9 +258,9 @@ def generate_neuron_pages(
     heatmaps_blank: torch.Tensor,
     heatmaps_my: torch.Tensor,
     variance_ranks: list[list[int]],
-    model,
-    focus_cache,
-    board_seqs_int,
+    model: HookedTransformer,
+    focus_cache: dict[str, torch.Tensor],
+    board_seqs_int: torch.Tensor,
     stoi_indices,
 ):
     """Generates pages for all neurons based on precomputed heatmaps.
@@ -288,9 +306,9 @@ def generate_neuron_pages_for_layer(
     heatmaps_blank: torch.Tensor,
     heatmaps_my: torch.Tensor,
     ranks: list[int],
-    model,
-    focus_cache,
-    board_seqs_int,
+    model: HookedTransformer,
+    focus_cache: dict[str, torch.Tensor],
+    board_seqs_int: torch.Tensor,
     stoi_indices,
 ):
     for neuron_index, (heatmap_blank, heatmap_my, rank) in enumerate(
@@ -310,13 +328,13 @@ def generate_neuron_pages_for_layer(
 
 
 def generate_page(
-    layer_index,
-    neuron_index,
-    rank,
-    heatmap_blank,
-    heatmap_my,
-    games,
-    model,
+    layer_index: int,
+    neuron_index: int,
+    rank: int,
+    heatmap_blank: torch.Tensor,
+    heatmap_my: torch.Tensor,
+    games: str,
+    model: HookedTransformer,
     stoi_indices,
 ):
     """Generate a page."""
@@ -365,9 +383,14 @@ def generate_page(
         f.write(template)
 
 
-def top_50_games(layer, neuron, focus_cache, board_seqs_int) -> str:
+def top_50_games(
+    layer_index: int,
+    neuron_index: int,
+    focus_cache: dict[str, torch.Tensor],
+    board_seqs_int: torch.Tensor,
+) -> str:
     """Takes top 50 games and visualizes them in a grid with visualization of the board state when hovering along with the neuron activation for that specific game."""
-    neuron_acts = focus_cache["post", layer, "mlp"][:, :, neuron]
+    neuron_acts = focus_cache["post", layer_index, "mlp"][:, :, neuron_index]
     num_games = 50
     focus_games_int = board_seqs_int[:num_games]
 
@@ -402,9 +425,11 @@ def top_50_games(layer, neuron, focus_cache, board_seqs_int) -> str:
     return table
 
 
-def generate_logit_attribution_table(layer, neuron, model, stoi_indices) -> str:
+def generate_logit_attribution_table(
+    layer_index: int, neuron_index: int, model: HookedTransformer, stoi_indices
+) -> str:
     """Generate a logit attribution table."""
-    w_out = model.blocks[layer].mlp.W_out[neuron, :]
+    w_out = model.blocks[layer_index].mlp.W_out[neuron_index, :]
     state = torch.zeros(8, 8, device=DEVICE)
     state.flatten()[stoi_indices] = w_out @ model.W_U[:, 1:]
     state.reshape(8, 8)

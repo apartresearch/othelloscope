@@ -241,23 +241,6 @@ def main():
         + full_linear_probe[white_to_play_index, ..., 1]
     )
 
-    layer = 6
-    game_index = 1
-    move = 22
-
-    # plot_single_board(int_to_label(focus_games_int[game_index, : move + 1]))
-
-    # This is the linear probe
-    probabilities = generate_probability_table(
-        layer,
-        game_index,
-        move,
-        title="Linear probe",
-        focus_cache=focus_cache,
-        linear_probe=linear_probe,
-    )
-    print("probabilities:", probabilities.shape)
-
     print("Computing accuracy over 50 games")
     # We first convert the board states to be in terms of my (+1) and their (-1)
     alternating = np.array(
@@ -295,7 +278,7 @@ def main():
     game_index = 0
 
     print("\nACTIVATE NEURON REPRESENTATION\n")
-    # Scale the probes down to be unit norm per cell
+    # Scale the probes down to be unit norm per feature
     blank_probe_normalised = blank_probe / blank_probe.norm(dim=0, keepdim=True)
     my_probe_normalised = my_probe / my_probe.norm(dim=0, keepdim=True)
     print("my_probe:", my_probe.shape)

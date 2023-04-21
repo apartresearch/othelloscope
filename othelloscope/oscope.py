@@ -8,7 +8,8 @@ import numpy as np
 
 # Import stuff
 import torch
-from torch import Tensor, functional
+from torch import Tensor
+from torch.nn import functional
 import numpy as np
 import tqdm.auto as tqdm
 from pathlib import Path

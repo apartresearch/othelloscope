@@ -361,11 +361,14 @@ def main():
         assert len([x for x in layer_variance_ranks if x == 0]) == 1
         variance_ranks.append(layer_variance_ranks)
 
-    html.generate_main_index(variance_sorted_neurons)
+    output_path = "othelloscope/output"
+
+    html.generate_main_index(output_path, variance_sorted_neurons)
 
     print("Generating neuron pages...")
     # Generate file for each neuron.
     html.generate_neuron_pages(
+        output_path,
         heatmaps_blank,
         heatmaps_my,
         attributions,

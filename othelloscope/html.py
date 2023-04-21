@@ -17,7 +17,7 @@ from othelloscope.mech_interp_othello_utils import (
 from othelloscope import templating
 
 
-def generate_neuron_path(layer_index: int, neuron_index: int):
+def generate_neuron_path(site_root: str, layer_index: int, neuron_index: int):
     """Generate the path to the neuron.
 
     Parameters
@@ -32,7 +32,7 @@ def generate_neuron_path(layer_index: int, neuron_index: int):
     str
         The path to the neuron.
     """
-    return "othelloscope/L{0}/N{1}".format(layer_index, neuron_index)
+    return f"{site_root}/L{layer_index}/N{neuron_index}"
 
 
 def generate_activation_table(heatmap: Tensor) -> str:
@@ -80,6 +80,7 @@ def generate_activation_table(heatmap: Tensor) -> str:
 
 
 def generate_neuron_pages(
+    site_path: str,
     heatmaps_blank: Tensor,
     heatmaps_my: Tensor,
     attributions: Tensor,
@@ -114,43 +115,25 @@ def generate_neuron_pages(
         layer_variance_ranks,
     ) in enumerate(zip(heatmaps_blank, heatmaps_my, attributions, variance_ranks)):
         print(f"Generating pages for neurons in layer {layer_index}")
-        generate_neuron_pages_for_layer(
-            layer_index,
-            heatmaps_blank,
-            heatmaps_my,
-            attributions,
-            layer_variance_ranks,
-            focus_cache,
-            board_seqs_int,
-        )
-
-
-def generate_neuron_pages_for_layer(
-    layer_index: int,
-    heatmaps_blank: Tensor,
-    heatmaps_my: Tensor,
-    attributions: Tensor,
-    ranks: list[int],
-    focus_cache: dict[str, Tensor],
-    board_seqs_int: Tensor,
-):
-    for neuron_index, (heatmap_blank, heatmap_my, attributions, rank) in enumerate(
-        zip(heatmaps_blank, heatmaps_my, attributions, ranks)
-    ):
-        games = top_50_games(layer_index, neuron_index, focus_cache, board_seqs_int)
-        generate_page(
-            layer_index,
-            neuron_index,
-            rank,
-            heatmap_blank,
-            heatmap_my,
-            attributions,
-            games,
-        )
+        for neuron_index, (heatmap_blank, heatmap_my, attributions, rank) in enumerate(
+            zip(heatmaps_blank, heatmaps_my, attributions, layer_variance_ranks)
+        ):
+            games = top_50_games(layer_index, neuron_index, focus_cache, board_seqs_int)
+            generate_neuron_page(
+                site_path,
+                layer_index,
+                neuron_index,
+                rank,
+                heatmap_blank,
+                heatmap_my,
+                attributions,
+                games,
+            )
 
 
 # Generate the page for a specific neuron
-def generate_page(
+def generate_neuron_page(
+    site_path: str,
     layer_index: int,
     neuron_index: int,
     rank: int,
@@ -162,7 +145,7 @@ def generate_page(
     """Generate a page."""
 
     # Get the path to the neuron
-    path = generate_neuron_path(layer_index, neuron_index)
+    path = generate_neuron_path(site_path, layer_index, neuron_index)
 
     # Create a folder if it doesn't exist
     if not os.path.exists(path):
@@ -244,8 +227,9 @@ def top_50_games(
 
     return table
 
-def generate_main_index(variance_sorted_neurons: list[list[int]]):
-    out_path = "othelloscope/index.html"
+
+def generate_main_index(site_root: str, variance_sorted_neurons: list[list[int]]):
+    out_path = f"{site_root}/index.html"
 
     # Read the template file
     file = templating.generate_from_template(
@@ -256,6 +240,7 @@ def generate_main_index(variance_sorted_neurons: list[list[int]]):
     # Write the generated file
     with open(out_path, "w") as f:
         f.write(file)
+
 
 def ranked_neuron_table(variance_sorted_neurons: list[list[int]]) -> str:
     """Generate a table of ranked neurons."""

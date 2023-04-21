@@ -8,7 +8,7 @@ import numpy as np
 
 # Import stuff
 import torch
-from torch import Tensor
+from torch import Tensor, functional
 import numpy as np
 import tqdm.auto as tqdm
 from pathlib import Path
@@ -103,19 +103,9 @@ def state_stack_to_one_hot(state_stack: Tensor) -> Tensor:
     return one_hot
 
 
-def neuron_probe(
-    model: HookedTransformer, layer_index: int, neuron_index: int
-) -> Tensor:
-    neuron_index = neuron_index.item()
-    w_out = model.blocks[layer_index].mlp.W_out[neuron_index, :].detach()
-    w_out /= w_out.norm()
-    return w_out
-
-
 def calculate_heatmaps(
     model: HookedTransformer,
     num_layers: int,
-    focus_cache: dict[str, Tensor],
     blank_probe_normalised: Tensor,
     my_probe_normalised: Tensor,
 ) -> Tuple[Tensor, Tensor]:
@@ -123,7 +113,7 @@ def calculate_heatmaps(
     layer_heatmaps_my = []
     for layer in range(num_layers):
         heatmaps_blank, heatmaps_my = calculate_heatmaps_for_layer(
-            model, layer, focus_cache, blank_probe_normalised, my_probe_normalised
+            model, layer, blank_probe_normalised, my_probe_normalised
         )
         layer_heatmaps_blank.append(heatmaps_blank)
         layer_heatmaps_my.append(heatmaps_my)
@@ -136,27 +126,21 @@ def calculate_heatmaps(
 def calculate_heatmaps_for_layer(
     model: HookedTransformer,
     layer_index: int,
-    focus_cache: dict[str, Tensor],
     blank_probe_normalised: Tensor,
     my_probe_normalised: Tensor,
 ) -> Tuple[Tensor, Tensor]:
-    neurons = (
-        to_device(focus_cache["post", layer_index][:, 3:-3])
-        .std(dim=[0, 1])
-        .argsort(descending=True)
-    )
+    # Output weights for all neurons on layer
+    # Shape (num_neurons, num_features)
+    w_out = model.blocks[layer_index].mlp.W_out.detach()
+    # Normalize the weights individually for each neuron.
+    w_out = functional.normalize(w_out, dim=1)
 
-    w_outs = [neuron_probe(model, layer_index, neuron) for neuron in neurons]
-    heatmaps_blank = torch.stack(
-        [
-            (w_out[:, None, None] * blank_probe_normalised).sum(dim=0)
-            for w_out in w_outs
-        ],
-        dim=0,
-    )
-    heatmaps_my = torch.stack(
-        [(w_out[:, None, None] * my_probe_normalised).sum(dim=0) for w_out in w_outs],
-        dim=0,
+    # Shape (num_neurons, 8, 8)
+    heatmaps_blank = (
+        w_out[:, :, None, None] * blank_probe_normalised[None, :, :, :]
+    ).sum(dim=1)
+    heatmaps_my = (w_out[:, :, None, None] * my_probe_normalised[None, :, :, :]).sum(
+        dim=1
     )
     return heatmaps_blank, heatmaps_my
 
@@ -248,6 +232,7 @@ def main():
     print("focus_valid_moves", focus_valid_moves.shape)
 
     focus_logits, focus_cache = model.run_with_cache(to_device(focus_games_int[:, :-1]))
+    print("focus cache post:", focus_cache["post", 0].shape)
 
     full_linear_probe = torch.load(
         OTHELLO_ROOT / "main_linear_probe.pth", map_location=DEVICE
@@ -332,6 +317,7 @@ def main():
     # Scale the probes down to be unit norm per cell
     blank_probe_normalised = blank_probe / blank_probe.norm(dim=0, keepdim=True)
     my_probe_normalised = my_probe / my_probe.norm(dim=0, keepdim=True)
+    print("my_probe:", my_probe.shape)
     # Set the center blank probes to 0, since they're never blank so the probe is meaningless
     blank_probe_normalised[:, [3, 3, 4, 4], [3, 4, 3, 4]] = 0.0
 
@@ -362,7 +348,7 @@ def main():
 
     # Calculate all heatmaps
     heatmaps_blank, heatmaps_my = calculate_heatmaps(
-        model, 8, focus_cache, blank_probe_normalised, my_probe_normalised
+        model, 8, blank_probe_normalised, my_probe_normalised
     )
 
     attributions = calculate_logit_attributions(model)

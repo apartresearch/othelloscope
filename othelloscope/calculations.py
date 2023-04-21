@@ -9,7 +9,7 @@ from transformer_lens import HookedTransformer
 def calculate_heatmaps(
     model: HookedTransformer,
     blank_probe_normalised: Tensor,
-    my_probe_normalised: Tensor,
+    ownership_probe_normalised: Tensor,
 ) -> Tuple[Tensor, Tensor]:
     # Output weights for all neurons
     # Shape (num_layers, num_neurons, num_features)
@@ -20,11 +20,11 @@ def calculate_heatmaps(
     heatmaps_blank = (
         w_out[:, :, :, None, None] * blank_probe_normalised[None, None, :, :, :]
     ).sum(dim=2)
-    heatmaps_my = (
-        w_out[:, :, :, None, None] * my_probe_normalised[None, None, :, :, :]
+    heatmaps_ownership = (
+        w_out[:, :, :, None, None] * ownership_probe_normalised[None, None, :, :, :]
     ).sum(dim=2)
 
-    return heatmaps_blank, heatmaps_my
+    return heatmaps_blank, heatmaps_ownership
 
 
 def calculate_logit_attributions(model: HookedTransformer) -> Tensor:

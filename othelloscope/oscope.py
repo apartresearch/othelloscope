@@ -196,15 +196,15 @@ def main():
     blank_probe = (
         linear_probe[..., 0] - linear_probe[..., 1] * 0.5 - linear_probe[..., 2] * 0.5
     )
-    my_probe = linear_probe[..., 2] - linear_probe[..., 1]
+    ownership_probe = linear_probe[..., 2] - linear_probe[..., 1]
 
     game_index = 0
 
     print("\nACTIVATE NEURON REPRESENTATION\n")
     # Scale the probes down to be unit norm per feature
     blank_probe_normalised = blank_probe / blank_probe.norm(dim=0, keepdim=True)
-    my_probe_normalised = my_probe / my_probe.norm(dim=0, keepdim=True)
-    print("my_probe:", my_probe.shape)
+    ownership_probe_normalised = ownership_probe / ownership_probe.norm(dim=0, keepdim=True)
+    print("ownership_probe:", ownership_probe.shape)
     # Set the center blank probes to 0, since they're never blank so the probe is meaningless
     blank_probe_normalised[:, [3, 3, 4, 4], [3, 4, 3, 4]] = 0.0
 
@@ -217,7 +217,7 @@ def main():
 
     U, S, Vh = torch.svd(
         torch.cat(
-            [my_probe.reshape(cfg.d_model, 64), blank_probe.reshape(cfg.d_model, 64)],
+            [ownership_probe.reshape(cfg.d_model, 64), blank_probe.reshape(cfg.d_model, 64)],
             dim=1,
         )
     )
@@ -234,25 +234,25 @@ def main():
     )
 
     # Calculate all heatmaps
-    heatmaps_blank, heatmaps_my = calculations.calculate_heatmaps(
-        model, blank_probe_normalised, my_probe_normalised
+    heatmaps_blank, heatmaps_ownership = calculations.calculate_heatmaps(
+        model, blank_probe_normalised, ownership_probe_normalised
     )
 
     attributions = calculations.calculate_logit_attributions(model)
 
-    print(type(heatmaps_my))
-    print(heatmaps_my.shape)
+    print(type(heatmaps_ownership))
+    print(heatmaps_ownership.shape)
 
     # Calculate heatmap standard deviations for each neuron
-    heatmaps_my_sd = heatmaps_my.detach().std(dim=(2, 3))
+    heatmaps_ownership_sd = heatmaps_ownership.detach().std(dim=(2, 3))
 
-    heatmaps_my_sd = heatmaps_my_sd.detach().cpu().numpy()
+    heatmaps_ownership_sd = heatmaps_ownership_sd.detach().cpu().numpy()
 
     # Sort neuron indices by standard deviation
     print("Sorting neurons by standard deviation...")
 
     variance_ranks, variance_sorted_neurons = calculations.neuron_ranking(
-        heatmaps_my_sd
+        heatmaps_ownership_sd
     )
 
     output_path = "othelloscope/output"
@@ -264,7 +264,7 @@ def main():
     html.generate_neuron_pages(
         output_path,
         heatmaps_blank,
-        heatmaps_my,
+        heatmaps_ownership,
         attributions,
         variance_ranks,
         focus_cache,

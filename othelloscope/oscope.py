@@ -50,6 +50,7 @@ def one_hot(list_of_ints: list[int], num_classes: int = 64) -> torch.Tensor:
     out[list_of_ints] = 1.0
     return out
 
+
 def state_stack_to_one_hot(state_stack: Tensor) -> Tensor:
     """Convert a state stack to one hot encoding.
 
@@ -249,22 +250,10 @@ def main():
 
     # Sort neuron indices by standard deviation
     print("Sorting neurons by standard deviation...")
-    variance_ranks = []
-    variance_sorted_neurons = []
-    for heatmap_my_sd in heatmaps_my_sd:
-        neuron_indices_my = list(enumerate(heatmap_my_sd))
-        neuron_indices_my.sort(
-            reverse=True,
-            key=lambda x: x[1],
-        )
-        variance_sorted_neurons.append([x[0] for x in neuron_indices_my])
 
-        layer_variance_ranks = np.zeros(len(neuron_indices_my), dtype=np.int32)
-        for neuron_index, (rank, _) in enumerate(neuron_indices_my):
-            layer_variance_ranks[neuron_index] = rank
-
-        assert len([x for x in layer_variance_ranks if x == 0]) == 1
-        variance_ranks.append(layer_variance_ranks)
+    variance_ranks, variance_sorted_neurons = calculations.neuron_ranking(
+        heatmaps_my_sd
+    )
 
     output_path = "othelloscope/output"
 
@@ -281,26 +270,6 @@ def main():
         focus_cache,
         board_seqs_int,
     )
-
-
-# Make an 8x8 html table from a numpy array
-# table = generate_activation_table(3, 1123)
-
-# # Read the template file
-# template = generate_from_template(
-#     "othelloscope/index.html",
-#     3,
-#     1123,
-#     "Doe",
-# )
-
-# # Create a folder if it doesn't exist
-# if not os.path.exists("othelloscope/test"):
-#     os.makedirs("othelloscope/test")
-
-# # Write the generated file
-# with open("othelloscope/test/test.html", "w") as f:
-#     f.write(template)
 
 
 if __name__ == "__main__":

@@ -14,8 +14,7 @@ import tqdm.auto as tqdm
 from pathlib import Path
 from neel_plotly import line, scatter, imshow, histogram
 import einops
-from othelloscope.neuron_pages import generate_activation_table, generate_neuron_pages
-from othelloscope.templating import generate_from_template
+from othelloscope import html
 
 import transformer_lens.utils as utils
 from transformer_lens import (
@@ -191,41 +190,6 @@ def calculate_logit_attributions(model: HookedTransformer) -> Tensor:
     )
 
     return attributions
-
-
-def generate_main_index(variance_sorted_neurons: list[list[int]]):
-    out_path = "othelloscope/index.html"
-
-    # Read the template file
-    file = generate_from_template(
-        "othelloscope/index_template.html",
-        ranked_neuron_table(variance_sorted_neurons),
-    )
-
-    # Write the generated file
-    with open(out_path, "w") as f:
-        f.write(file)
-
-
-def ranked_neuron_table(variance_sorted_neurons: list[list[int]]) -> str:
-    """Generate a table of ranked neurons."""
-
-    table = "<table class='neurons'>"
-    layer_header_strings = "".join(
-        [f"<th>Layer {layer_index}</th>" for layer_index in range(8)]
-    )
-    table += f"<tr><th></th>{layer_header_strings}</tr>"
-    for rank in range(len(variance_sorted_neurons[0])):
-        table += f"<tr><th>{rank}</th>"
-        table += "".join(
-            [
-                f"<td><a href='L{layer_index}/N{variance_sorted_neurons[layer_index][rank]}/index.html'>{variance_sorted_neurons[layer_index][rank]}</a></td>"
-                for layer_index in range(8)
-            ]
-        )
-        table += "</tr>"
-    table += "</table>"
-    return table
 
 
 def main():
@@ -430,11 +394,11 @@ def main():
         assert len([x for x in layer_variance_ranks if x == 0]) == 1
         variance_ranks.append(layer_variance_ranks)
 
-    generate_main_index(variance_sorted_neurons)
+    html.generate_main_index(variance_sorted_neurons)
 
     print("Generating neuron pages...")
     # Generate file for each neuron.
-    generate_neuron_pages(
+    html.generate_neuron_pages(
         heatmaps_blank,
         heatmaps_my,
         attributions,

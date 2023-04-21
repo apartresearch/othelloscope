@@ -243,3 +243,36 @@ def top_50_games(
     table += "</table>"
 
     return table
+
+def generate_main_index(variance_sorted_neurons: list[list[int]]):
+    out_path = "othelloscope/index.html"
+
+    # Read the template file
+    file = templating.generate_from_template(
+        "othelloscope/index_template.html",
+        ranked_neuron_table(variance_sorted_neurons),
+    )
+
+    # Write the generated file
+    with open(out_path, "w") as f:
+        f.write(file)
+
+def ranked_neuron_table(variance_sorted_neurons: list[list[int]]) -> str:
+    """Generate a table of ranked neurons."""
+
+    table = "<table class='neurons'>"
+    layer_header_strings = "".join(
+        [f"<th>Layer {layer_index}</th>" for layer_index in range(8)]
+    )
+    table += f"<tr><th></th>{layer_header_strings}</tr>"
+    for rank in range(len(variance_sorted_neurons[0])):
+        table += f"<tr><th>{rank}</th>"
+        table += "".join(
+            [
+                f"<td><a href='L{layer_index}/N{variance_sorted_neurons[layer_index][rank]}/index.html'>{variance_sorted_neurons[layer_index][rank]}</a></td>"
+                for layer_index in range(8)
+            ]
+        )
+        table += "</tr>"
+    table += "</table>"
+    return table

@@ -50,28 +50,6 @@ def one_hot(list_of_ints: list[int], num_classes: int = 64) -> torch.Tensor:
     out[list_of_ints] = 1.0
     return out
 
-
-def generate_probability_table(
-    layer_index: int,
-    game_index: int,
-    move_index: int,
-    focus_cache: dict[str, Tensor],
-    linear_probe: Tensor,
-    **kwargs,
-) -> Tensor:
-    """Generate a probability table."""
-    residual_stream = focus_cache["resid_post", layer_index][game_index, move_index]
-
-    print("residual_stream", residual_stream.shape)
-    probe_out = einops.einsum(
-        residual_stream,
-        linear_probe,
-        "d_model, d_model row col options -> row col options",
-    )
-    probabilities = probe_out.softmax(dim=-1)
-    return probabilities
-
-
 def state_stack_to_one_hot(state_stack: Tensor) -> Tensor:
     """Convert a state stack to one hot encoding.
 

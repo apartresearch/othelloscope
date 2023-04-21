@@ -110,39 +110,19 @@ def calculate_heatmaps(
     blank_probe_normalised: Tensor,
     my_probe_normalised: Tensor,
 ) -> Tuple[Tensor, Tensor]:
-    layer_heatmaps_blank = []
-    layer_heatmaps_my = []
-    for layer in range(num_layers):
-        heatmaps_blank, heatmaps_my = calculate_heatmaps_for_layer(
-            model, layer, blank_probe_normalised, my_probe_normalised
-        )
-        layer_heatmaps_blank.append(heatmaps_blank)
-        layer_heatmaps_my.append(heatmaps_my)
+    # Output weights for all neurons
+    # Shape (num_layers, num_neurons, num_features)
+    w_out = model.W_out.detach()
+    # Normalize the weights individually for each neuron
+    w_out = functional.normalize(w_out, dim=2)
 
-    return torch.stack(layer_heatmaps_blank, dim=0), torch.stack(
-        layer_heatmaps_my, dim=0
-    )
-
-
-def calculate_heatmaps_for_layer(
-    model: HookedTransformer,
-    layer_index: int,
-    blank_probe_normalised: Tensor,
-    my_probe_normalised: Tensor,
-) -> Tuple[Tensor, Tensor]:
-    # Output weights for all neurons on layer
-    # Shape (num_neurons, num_features)
-    w_out = model.blocks[layer_index].mlp.W_out.detach()
-    # Normalize the weights individually for each neuron.
-    w_out = functional.normalize(w_out, dim=1)
-
-    # Shape (num_neurons, 8, 8)
     heatmaps_blank = (
-        w_out[:, :, None, None] * blank_probe_normalised[None, :, :, :]
-    ).sum(dim=1)
-    heatmaps_my = (w_out[:, :, None, None] * my_probe_normalised[None, :, :, :]).sum(
-        dim=1
-    )
+        w_out[:, :, :, None, None] * blank_probe_normalised[None, None, :, :, :]
+    ).sum(dim=2)
+    heatmaps_my = (
+        w_out[:, :, :, None, None] * my_probe_normalised[None, None, :, :, :]
+    ).sum(dim=2)
+
     return heatmaps_blank, heatmaps_my
 
 

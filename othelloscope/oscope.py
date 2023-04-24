@@ -138,19 +138,22 @@ def main():
     focus_logits, focus_cache = model.run_with_cache(to_device(focus_games_int[:, :-1]))
     print("focus cache post:", focus_cache["post", 0].shape)
 
+    # Load the main linear probe
+    # This is actually two linear probes. One for the turns when it is black's turn and one for when it is white's turn.
+    # Shape (2, num_freatures, num_rows, num_cols, num_cell_states)
     full_linear_probe = torch.load(
         OTHELLO_ROOT / "main_linear_probe.pth", map_location=DEVICE
     )
-    rows = 8
 
+    rows = 8
     cols = 8
-    options = 3
+    num_cell_states = 3
     black_to_play_index = 0
     white_to_play_index = 1
     blank_index = 0
     their_index = 1
     my_index = 2
-    linear_probe = torch.zeros(cfg.d_model, rows, cols, options, device=DEVICE)
+    linear_probe = torch.zeros(cfg.d_model, rows, cols, num_cell_states, device=DEVICE)
     linear_probe[..., blank_index] = 0.5 * (
         full_linear_probe[black_to_play_index, ..., 0]
         + full_linear_probe[white_to_play_index, ..., 0]
@@ -203,7 +206,9 @@ def main():
     print("\nACTIVATE NEURON REPRESENTATION\n")
     # Scale the probes down to be unit norm per feature
     blank_probe_normalised = blank_probe / blank_probe.norm(dim=0, keepdim=True)
-    ownership_probe_normalised = ownership_probe / ownership_probe.norm(dim=0, keepdim=True)
+    ownership_probe_normalised = ownership_probe / ownership_probe.norm(
+        dim=0, keepdim=True
+    )
     print("ownership_probe:", ownership_probe.shape)
     # Set the center blank probes to 0, since they're never blank so the probe is meaningless
     blank_probe_normalised[:, [3, 3, 4, 4], [3, 4, 3, 4]] = 0.0
@@ -217,7 +222,10 @@ def main():
 
     U, S, Vh = torch.svd(
         torch.cat(
-            [ownership_probe.reshape(cfg.d_model, 64), blank_probe.reshape(cfg.d_model, 64)],
+            [
+                ownership_probe.reshape(cfg.d_model, 64),
+                blank_probe.reshape(cfg.d_model, 64),
+            ],
             dim=1,
         )
     )
